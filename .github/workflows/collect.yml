@@ -1,0 +1,58 @@
+name: 抓取最热
+
+on:
+  schedule:
+    # 每小时一次。避开整点：GitHub 的定时任务在整点前后排队最久，晚几个小时也有过。
+    # 每次抓到的并进当天的存档，个别几次没跑不影响。
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+# 不让两次抓取同时提交。
+concurrency:
+  group: collect
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: 抓取网站的「最热」
+        run: node collector/collect.mjs
+      - name: 提交数据
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add hot
+          if git diff --cached --quiet; then
+            echo '数据没有变化'
+          else
+            git commit -m "data: $(date -u '+%Y-%m-%d %H:%M') UTC"
+            git push
+          fi
+      - name: 打包 Pages
+        run: |
+          mkdir -p _site
+          cp -R hot _site/hot
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    needs: collect
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
