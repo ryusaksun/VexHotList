@@ -20,6 +20,8 @@ https://hot.ryusaksun.com/<年>-<月>-<日>.json
 
 「一天」按 UTC 日算，也就是北京时间早上 8 点到第二天早上 8 点，和网站「最热」的切日一致。UTC 零点后 15 分钟内不记：这时候网站刚换到新的一天，列表几乎是空的。
 
+2026-10-26 起是这里自己抓的。10-21 到 10-25 是上线前从 [V2Next 的存档](https://github.com/zyronon/V2Next-hot)补来的，好让「7 天」一开始就有数据：它每天只抓一次（北京时间第二天凌晨 2–4 点），回复数停在那一刻。
+
 ## 定时
 
 GitHub 自己的定时任务常常推迟几个小时，甚至整段不跑（上线头一天 20 小时只跑了 3 次）。所以由 Cloudflare 上的一个 Worker（`trigger/`）每小时第 17 分钟准点调 GitHub 的「手动运行」接口（workflow_dispatch），跑一次 collect.yml。collect.yml 里 GitHub 自己的定时留着兜底：Worker 出了问题，存档只是变稀，不会断。
