@@ -2,8 +2,9 @@ name: 抓取最热
 
 on:
   schedule:
-    # 每小时一次。避开整点：GitHub 的定时任务在整点前后排队最久，晚几个小时也有过。
-    # 每次抓到的并进当天的存档，个别几次没跑不影响。
+    # 兜底用。GitHub 的定时常常几个小时才跑一次（上线头一天 20 小时只跑了 3 次），
+    # 平时靠 Cloudflare Worker（trigger/）每小时第 17 分钟准点调下面的 workflow_dispatch。
+    # 两边碰到同一小时就多跑一次，每次抓到的并进当天的存档，不碍事。
     - cron: '17 * * * *'
   workflow_dispatch:
 
@@ -40,9 +41,10 @@ jobs:
             git push
           fi
       - name: 打包 Pages
+        # 站点绑在 hot.ryusaksun.com 上，存档放在根目录：https://hot.ryusaksun.com/<年>-<月>-<日>.json。
         run: |
           mkdir -p _site
-          cp -R hot _site/hot
+          cp hot/*.json _site/
       - uses: actions/upload-pages-artifact@v5
         with:
           path: _site

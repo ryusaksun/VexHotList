@@ -1,0 +1,18 @@
+# 每小时叫 GitHub 跑一次「抓取最热」的 Worker。部署：在这个目录运行 npx wrangler deploy。
+name = "vexhotlist-trigger"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+
+# 不开网址：这个 Worker 只靠定时运行，外面没法叫它。
+workers_dev = false
+preview_urls = false
+
+# 每小时第 17 分钟（Cloudflare 的定时按 UTC），和 collect.yml 里 GitHub 自己的定时同一分钟。
+[triggers]
+crons = ["17 * * * *"]
+
+# 在 Cloudflare 控制台的日志页留下每次运行的记录；GitHub 拒绝时（令牌过期之类）看得到原因。
+[observability]
+enabled = true
+
+# GITHUB_TOKEN 是机密，不要写进这个文件：在这个目录运行 npx wrangler secret put GITHUB_TOKEN 设置。
