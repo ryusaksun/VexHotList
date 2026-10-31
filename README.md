@@ -1,6 +1,6 @@
 # VexHotList
 
-V2EX「最热」的每日存档，给 [Vex](https://apps.apple.com/app/id6760471743) 的「最热」页里「昨天、前天、3 天、7 天」用。
+V2EX「最热」的每日存档，给 [Vex](https://apps.apple.com/app/id6760471743) 的「最热」页里「昨天、前天、3 天、7 天、1 个月、3 个月、今年」用。
 
 ## 地址
 
@@ -9,6 +9,16 @@ https://hot.ryusaksun.com/<年>-<月>-<日>.json
 ```
 
 例如 `2026-10-26.json`。月、日不补零。没有这一天时回 404。
+
+长时间的榜单每小时算好一份，App 只下一个文件：
+
+```
+https://hot.ryusaksun.com/top-30d.json    最近 30 天
+https://hot.ryusaksun.com/top-90d.json    最近 90 天
+https://hot.ryusaksun.com/top-year.json   今年（UTC 1 月 1 日起）
+```
+
+格式与每天的存档相同。「推广」节点（`promotions`）与其余的各留前 100 条：时间拉长后榜单上推广帖很多（今年前 100 名里有 40 条），App 里可以选择不看，排除之后也还有 100 条。
 
 ## 怎么来的
 
@@ -20,7 +30,9 @@ https://hot.ryusaksun.com/<年>-<月>-<日>.json
 
 「一天」按 UTC 日算，也就是北京时间早上 8 点到第二天早上 8 点，和网站「最热」的切日一致。UTC 零点后 15 分钟内不记：这时候网站刚换到新的一天，列表几乎是空的。
 
-2026-10-26 起是这里自己抓的。10-21 到 10-25 是上线前从 [V2Next 的存档](https://github.com/zyronon/V2Next-hot)补来的，好让「7 天」一开始就有数据：它每天只抓一次（北京时间第二天凌晨 2–4 点），回复数停在那一刻。
+2026-10-26 起是这里自己抓的。2026-01-01 到 10-25 是从 [V2Next 的存档](https://github.com/zyronon/V2Next-hot)补来的，好让「7 天」「今年」一开始就有数据（缺 02-17、08-06、08-27 三天）：它每天只抓一次（北京时间第二天凌晨 2–4 点），回复数停在那一刻。
+
+存档里的回复数停在最后一次看到的那一刻，之后的回复数不到。所以每小时再向 V2EX 的接口（`/api/topics/show.json`）核对一小批（`collector/refresh.mjs`）：回复数到 30 的主题都核对，发帖后 14 天内每天一次，把真实的回复数、最后回复、节点写回每天的存档。接口不通时这一步自己停下，不影响抓取与发布。
 
 ## 定时
 
@@ -50,12 +62,13 @@ Worker 只做这一件事：没有网址，只靠定时运行，也不访问 V2E
 |---|---|
 | `id` | 主题 ID |
 | `title` | 标题 |
-| `replyCount` | 回复数，停在最后一次在「最热」上看到的那一刻 |
+| `replyCount` | 回复数：最后一次在「最热」上看到的，或核对到的，取大的 |
 | `avatar` | 作者头像地址 |
 | `username` | 作者 |
 | `lastReplyUsername` | 最后回复的人（没人回复时没有） |
 | `lastReplyDate` | 最后回复时间，北京时间，`2026-10-26 16:18:23` |
 | `nodeTitle`、`nodeUrl` | 节点名与节点地址里的名字（`/go/<nodeUrl>`） |
+| `checkedAt` | 最后一次向接口核对回复数的时刻（Unix 秒），没核对过时没有；榜单文件里不带 |
 
 字段与 [V2Next](https://github.com/zyronon/V2Next) 的存档相同。
 
@@ -66,4 +79,6 @@ Worker 只做这一件事：没有网址，只靠定时运行，也不访问 V2E
 ```sh
 node --test collector/test/*.test.mjs trigger/test/*.test.mjs  # 测试
 HOT_OUT_DIR=/tmp/hot node collector/collect.mjs                 # 抓一次，写到 /tmp/hot
+HOT_OUT_DIR=/tmp/hot HOT_REFRESH_LIMIT=20 node collector/refresh.mjs   # 核对 20 条
+node collector/build-lists.mjs /tmp/site                        # 生成榜单文件
 ```

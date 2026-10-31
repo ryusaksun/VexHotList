@@ -29,6 +29,10 @@ jobs:
           node-version: 22
       - name: 抓取网站的「最热」
         run: node collector/collect.mjs
+      - name: 核对回复数
+        # 接口不通（限额、人机验证）时这一步自己停下；别的意外也不能拖累后面的提交与发布。
+        continue-on-error: true
+        run: node collector/refresh.mjs
       - name: 提交数据
         run: |
           git config user.name 'github-actions[bot]'
@@ -45,6 +49,7 @@ jobs:
         run: |
           mkdir -p _site
           cp hot/*.json _site/
+          node collector/build-lists.mjs _site
       - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
