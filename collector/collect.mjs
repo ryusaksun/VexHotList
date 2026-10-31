@@ -4,7 +4,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { HOT_TAB_URL, dayFileName, isTooCloseToDayStart, mergeDay, parseHotTab } from './lib.mjs'
+import { HOT_TAB_URL, dayFileName, isStaleSnapshot, isTooCloseToDayStart, mergeDay, parseHotTab } from './lib.mjs'
 
 const outDir = process.env.HOT_OUT_DIR ?? join(dirname(fileURLToPath(import.meta.url)), '..', 'hot')
 // 电脑版页面：列表结构与解析规则对应。
@@ -35,14 +35,22 @@ if (isTooCloseToDayStart(date)) {
   console.log('UTC 零点后 15 分钟内，这次不记')
   process.exit(0)
 }
-const path = join(outDir, `${dayFileName(date)}.json`)
-let existing = []
-try {
-  existing = JSON.parse(await readFile(path, 'utf8'))
-} catch (error) {
-  if (error.code !== 'ENOENT') throw error
+
+async function readDay(day) {
+  try {
+    return JSON.parse(await readFile(join(outDir, `${dayFileName(day)}.json`), 'utf8'))
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error
+    return []
+  }
 }
-const merged = mergeDay(existing, topics)
+
+if (isStaleSnapshot(topics, await readDay(new Date(date.getTime() - 86_400_000)))) {
+  console.log('网站还是昨天的列表，这次不记')
+  process.exit(0)
+}
+const path = join(outDir, `${dayFileName(date)}.json`)
+const merged = mergeDay(await readDay(date), topics)
 await mkdir(outDir, { recursive: true })
 await writeFile(path, `${JSON.stringify(merged)}\n`)
 console.log(`${dayFileName(date)}：这次 ${topics.length} 条，当天共 ${merged.length} 条`)

@@ -77,10 +77,19 @@ export function isTooCloseToDayStart(date) {
   return date.getUTCHours() === 0 && date.getUTCMinutes() < 15
 }
 
-/** 字段顺序固定（与 V2Next 的存档相同），没有值的不写。 */
-function normalize(topic) {
+/**
+ * 这次抓到的还是昨天的列表：网站的「最热」页有缓存，UTC 零点过后十几分钟有时还是前一天的内容（10-28、10-29、10-30 都碰上了），
+ * 记下来「昨天」就混进前一天的帖子。「最热」只列当天新发的帖，有一条在昨天的存档里就是旧页面。
+ */
+export function isStaleSnapshot(snapshot, yesterday) {
+  const ids = new Set(yesterday.map((topic) => topic.id))
+  return snapshot.some((topic) => ids.has(topic.id))
+}
+
+/** 字段顺序固定（前面几个与 V2Next 的存档相同），没有值的不写。`checkedAt` 是最后一次向接口核对回复数的时刻（秒），见 refresh.mjs。 */
+export function normalize(topic) {
   const result = {}
-  for (const key of ['id', 'title', 'replyCount', 'avatar', 'username', 'lastReplyUsername', 'lastReplyDate', 'nodeTitle', 'nodeUrl']) {
+  for (const key of ['id', 'title', 'replyCount', 'avatar', 'username', 'lastReplyUsername', 'lastReplyDate', 'nodeTitle', 'nodeUrl', 'checkedAt']) {
     if (topic[key] !== undefined && topic[key] !== null) result[key] = topic[key]
   }
   return result
@@ -93,8 +102,12 @@ function beijingTime(local, offsetHours, offsetMinutes) {
   const [hour, minute, second] = clock.split(':').map(Number)
   const sign = offsetHours.startsWith('-') ? -1 : 1
   const offset = sign * (Math.abs(Number(offsetHours)) * 60 + Number(offsetMinutes))
-  const utc = Date.UTC(year, month - 1, day, hour, minute, second) - offset * 60_000
-  const beijing = new Date(utc + 8 * 3_600_000)
+  return formatBeijingTime(Date.UTC(year, month - 1, day, hour, minute, second) - offset * 60_000)
+}
+
+/** 毫秒时间戳写成北京时间的「2026-10-26 16:18:23」。 */
+export function formatBeijingTime(milliseconds) {
+  const beijing = new Date(milliseconds + 8 * 3_600_000)
   const pad = (value) => String(value).padStart(2, '0')
   return `${beijing.getUTCFullYear()}-${pad(beijing.getUTCMonth() + 1)}-${pad(beijing.getUTCDate())} `
     + `${pad(beijing.getUTCHours())}:${pad(beijing.getUTCMinutes())}:${pad(beijing.getUTCSeconds())}`

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
-import { dayFileName, isTooCloseToDayStart, mergeDay, parseHotTab } from '../lib.mjs'
+import { dayFileName, formatBeijingTime, isStaleSnapshot, isTooCloseToDayStart, mergeDay, parseHotTab } from '../lib.mjs'
 
 const fixture = readFileSync(new URL('./fixtures/tab-hot.html', import.meta.url), 'utf8')
 
@@ -77,4 +77,22 @@ test('UTC 零点后 15 分钟内不记', () => {
   assert.equal(isTooCloseToDayStart(new Date('2026-10-26T00:14:59Z')), true)
   assert.equal(isTooCloseToDayStart(new Date('2026-10-26T00:15:00Z')), false)
   assert.equal(isTooCloseToDayStart(new Date('2026-10-25T23:59:00Z')), false)
+})
+
+test('网站还是昨天的列表：有一条在昨天的存档里就不记', () => {
+  const yesterday = [{ id: 1, replyCount: 9 }, { id: 2, replyCount: 8 }]
+  assert.equal(isStaleSnapshot([{ id: 2, replyCount: 9 }, { id: 3, replyCount: 1 }], yesterday), true)
+  assert.equal(isStaleSnapshot([{ id: 3, replyCount: 1 }], yesterday), false)
+  assert.equal(isStaleSnapshot([{ id: 3, replyCount: 1 }], []), false, '没有昨天的存档时照常记')
+})
+
+test('并进当天时留着核对时刻', () => {
+  const merged = mergeDay([{ id: 1, title: 'a', replyCount: 9, username: 'u', checkedAt: 100 }],
+    [{ id: 1, title: 'b', replyCount: 7, username: 'u' }])
+  assert.equal(merged[0].checkedAt, 100)
+  assert.equal(merged[0].replyCount, 9)
+})
+
+test('时间戳写成北京时间', () => {
+  assert.equal(formatBeijingTime(Date.UTC(2026, 9, 26, 8, 18, 23)), '2026-10-26 16:18:23')
 })
